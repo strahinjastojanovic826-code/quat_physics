@@ -85,3 +85,37 @@ impl PhysicsWorld {
         );
     }
 }
+
+pub struct TimeStepper {
+    accumulator: f32,
+    fixed_dt: f32,
+}
+
+impl TimeStepper {
+    pub fn new(fixed_dt: f32) -> Self {
+        Self {
+            accumulator: 0.0,
+            fixed_dt,
+        }
+    }
+
+    /// Advances the simulation loop with a fixed timestep accumulator pattern
+    pub fn step<F1, F2>(&mut self, frame_dt: f32, mut update_physics: F1, mut interpolate: F2)
+    where
+        F1: FnMut(f32), // Called at fixed_dt intervals
+        F2: FnMut(f32), // Called for rendering interpolation (alpha factor 0.0 to 1.0)
+    {
+        // Prevent spiral of death if frame rate drops significantly
+        let clamped_dt = if frame_dt > 0.25 { 0.25 } else { frame_dt };
+        self.accumulator += clamped_dt;
+
+        while self.accumulator >= self.fixed_dt {
+            update_physics(self.fixed_dt);
+            self.accumulator -= self.fixed_dt;
+        }
+
+        // Alpha interpolation factor for smooth rendering between physics ticks
+        let alpha = self.accumulator / self.fixed_dt;
+        interpolate(alpha);
+    }
+}

@@ -104,3 +104,52 @@ impl CollisionSystem {
         }
     }
 }
+
+pub struct QuatMaterial {
+    pub restitution: f32,    // Bounciness (0.0 to 1.0)
+    pub friction: f32,       // Surface sliding friction
+    pub drag: f32,           // Fluid / air resistance coefficient
+    pub plasticity: f32,     // Deformation energy absorption
+}
+
+impl QuatMaterial {
+    /// Maps a 2-bit quaternary state to rich, multi-parameter physical material properties
+    pub fn from_qustate(state: QuatState) -> Self {
+        match state {
+            QuatState::Zero => Self {
+                restitution: 0.5,
+                friction: 0.2,
+                drag: 0.01,
+                plasticity: 0.0, // Perfectly elastic/standard response
+            },
+            QuatState::One => Self {
+                restitution: 0.95,
+                friction: 0.05,
+                drag: 0.002,
+                plasticity: 0.0, // Super bouncy / frictionless rubber
+            },
+            QuatState::Two => Self {
+                restitution: 0.15,
+                friction: 0.6,
+                drag: 0.05,
+                plasticity: 0.3, // Damped / sticky viscous material
+            },
+            QuatState::Three => Self {
+                restitution: 0.0,
+                friction: 0.9,
+                drag: 0.15,
+                plasticity: 1.0, // Inelastic / dead stop / plastic crushable body
+            },
+        }
+    }
+
+    /// Combines two interacting materials during a collision response
+    pub fn combine(mat1: &Self, mat2: &Self) -> Self {
+        Self {
+            restitution: (mat1.restitution + mat2.restitution) * 0.5,
+            friction: (mat1.friction * mat2.friction).sqrt(), // Geometric mean for friction
+            drag: (mat1.drag + mat2.drag) * 0.5,
+            plasticity: std::cmp::max(mat1.plasticity.to_bits(), mat2.plasticity.to_bits()) as f32, // Simplified max plasticity
+        }
+    }
+}
